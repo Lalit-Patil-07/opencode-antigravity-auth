@@ -188,7 +188,7 @@ export function resolveModelWithTier(requestedModel: string, options: ModelResol
     if (isGemini3Pro && !tier && !isImageModel) {
       antigravityModel = `${modelWithoutQuota}-low`;
     } else if (isGemini3Flash && tier) {
-      antigravityModel = baseName;
+      antigravityModel = modelWithoutQuota;
     }
   }
 
