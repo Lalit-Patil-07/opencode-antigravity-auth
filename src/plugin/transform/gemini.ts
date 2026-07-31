@@ -89,8 +89,8 @@ export function toGeminiSchema(schema: unknown): unknown {
       // Transform union type schemas
       result[key] = value.map((item) => toGeminiSchema(item));
     } else if (key === "enum" && Array.isArray(value)) {
-      // Keep enum values as-is
-      result[key] = value;
+      // Keep enum values as strings (Gemini API requires enum items to be strings)
+      result[key] = value.map((v) => typeof v === "string" ? v : String(v));
     } else if (key === "default" || key === "examples") {
       // Keep default and examples as-is
       result[key] = value;
@@ -230,6 +230,7 @@ export function buildImageGenerationConfig(): ImageConfig {
 export function normalizeGeminiTools(
   payload: RequestPayload,
 ): { toolDebugMissing: number; toolDebugSummaries: string[] } {
+  require("fs").writeFileSync("/tmp/payload-dump.json", JSON.stringify(payload, null, 2));
   let toolDebugMissing = 0;
   const toolDebugSummaries: string[] = [];
 
@@ -246,6 +247,18 @@ export function normalizeGeminiTools(
     }
 
     const newTool = { ...t };
+
+    // Handle native Gemini functionDeclarations format from OpenCode
+    if (newTool.functionDeclarations && Array.isArray(newTool.functionDeclarations)) {
+      newTool.functionDeclarations = newTool.functionDeclarations.map((decl: any) => {
+        if (decl.parameters) {
+          decl.parameters = toGeminiSchema(decl.parameters);
+        }
+        return decl;
+      });
+      // Skip the rest of the normalization since it's already in the right format
+      return newTool;
+    }
 
     const schemaCandidates = [
       (newTool.function as Record<string, unknown> | undefined)?.input_schema,
@@ -285,14 +298,31 @@ export function normalizeGeminiTools(
       (newTool.custom as Record<string, unknown> | undefined)?.name ||
       `tool-${toolIndex}`;
 
-    // Always update function.input_schema with transformed schema
+    // Always update function schemas with transformed schema
     if (newTool.function && schema) {
       (newTool.function as Record<string, unknown>).input_schema = schema;
+      if ((newTool.function as Record<string, unknown>).parameters) {
+        (newTool.function as Record<string, unknown>).parameters = schema;
+      }
     }
 
-    // Always update custom.input_schema with transformed schema
+    // Always update custom schemas with transformed schema
     if (newTool.custom && schema) {
       (newTool.custom as Record<string, unknown>).input_schema = schema;
+      if ((newTool.custom as Record<string, unknown>).parameters) {
+        (newTool.custom as Record<string, unknown>).parameters = schema;
+      }
+    }
+
+    // Always update flat schemas with transformed schema
+    if (newTool.parameters) {
+      newTool.parameters = schema;
+    }
+    if (newTool.input_schema) {
+      newTool.input_schema = schema;
+    }
+    if (newTool.inputSchema) {
+      newTool.inputSchema = schema;
     }
 
     // Create custom from function if missing
