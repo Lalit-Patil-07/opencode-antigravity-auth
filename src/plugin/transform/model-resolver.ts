@@ -386,7 +386,7 @@ export function resolveModelWithVariant(
   if (isGemini3) {
     const level = budgetToGemini3Level(budget);
     const isAntigravityGemini3Pro = base.quotaPreference === "antigravity" &&
-      isGemini3ProModel(base.actualModel);
+      (isGemini3ProModel(base.actualModel) || isGemini3FlashModel(base.actualModel));
 
     let actualModel = base.actualModel;
     if (isAntigravityGemini3Pro) {
