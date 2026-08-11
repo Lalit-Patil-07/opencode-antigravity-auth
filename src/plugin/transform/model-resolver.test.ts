@@ -155,12 +155,24 @@ describe("resolveModelWithTier", () => {
   });
 
   describe("Gemini 3.5/3.6 Flash (GA models)", () => {
-    it("antigravity-gemini-3.5-flash gets default thinkingLevel 'low'", () => {
+    it("antigravity-gemini-3.5-flash gets default tier -low (API only has tiered names)", () => {
       const result = resolveModelWithTier("antigravity-gemini-3.5-flash");
-      expect(result.actualModel).toBe("gemini-3.5-flash");
+      expect(result.actualModel).toBe("gemini-3.5-flash-low");
       expect(result.thinkingLevel).toBe("low");
       expect(result.quotaPreference).toBe("antigravity");
       expect(result.explicitQuota).toBe(true);
+    });
+
+    it("antigravity-gemini-3.6-flash gets default tier -low (API only has tiered names)", () => {
+      const result = resolveModelWithTier("antigravity-gemini-3.6-flash");
+      expect(result.actualModel).toBe("gemini-3.6-flash-low");
+      expect(result.thinkingLevel).toBe("low");
+    });
+
+    it("antigravity-gemini-3.5-flash-extra-low keeps full tier and maps thinkingLevel to minimal", () => {
+      const result = resolveModelWithTier("antigravity-gemini-3.5-flash-extra-low");
+      expect(result.actualModel).toBe("gemini-3.5-flash-extra-low");
+      expect(result.thinkingLevel).toBe("minimal");
     });
 
     it("antigravity-gemini-3.6-flash-high keeps tier suffix on model name", () => {
@@ -369,9 +381,15 @@ describe("Issue #103: resolveModelForHeaderStyle", () => {
       expect(result.quotaPreference).toBe("gemini-cli");
     });
 
-    it("transforms gemini-3.1-pro-low to gemini-3.1-pro-preview for gemini-cli", () => {
+    it("transforms gemini-3.1-pro-low to bare gemini-3.1-pro for gemini-cli (no -preview for GA families)", () => {
       const result = resolveModelForHeaderStyle("gemini-3.1-pro-low", "gemini-cli");
-      expect(result.actualModel).toBe("gemini-3.1-pro-preview");
+      expect(result.actualModel).toBe("gemini-3.1-pro");
+      expect(result.quotaPreference).toBe("gemini-cli");
+    });
+
+    it("strips full extra-low tier for gemini-cli without corruption", () => {
+      const result = resolveModelForHeaderStyle("gemini-3.5-flash-extra-low", "gemini-cli");
+      expect(result.actualModel).toBe("gemini-3.5-flash");
       expect(result.quotaPreference).toBe("gemini-cli");
     });
 

@@ -59,7 +59,7 @@ export const MODEL_ALIASES: Record<string, string> = {
   // Reference: Antigravity-Manager/src-tauri/src/proxy/common/model_mapping.rs
 };
 
-const TIER_REGEX = /-(minimal|low|medium|high)$/;
+const TIER_REGEX = /-(extra-low|minimal|low|medium|high)$/;
 const QUOTA_PREFIX_REGEX = /^antigravity-/i;
 const GEMINI_3_PRO_REGEX = /^gemini-3(?:\.\d+)?-pro/i;
 const GEMINI_3_FLASH_REGEX = /^gemini-3(?:\.\d+)?-flash/i;
@@ -187,8 +187,10 @@ export function resolveModelWithTier(requestedModel: string, options: ModelResol
   if (skipAlias) {
     if (isGemini3Pro && !tier && !isImageModel) {
       antigravityModel = `${modelWithoutQuota}-low`;
-    } else if (isGemini3Flash && tier) {
-      antigravityModel = modelWithoutQuota;
+    } else if (isGemini3Flash && !tier && /^gemini-3\.(5|6)-flash/i.test(modelWithoutQuota)) {
+      // Antigravity API only exposes tiered names for 3.5/3.6 flash
+      // (gemini-3.6-flash-low etc). Bare names 404. Default to -low.
+      antigravityModel = `${modelWithoutQuota}-low`;
     }
   }
 
@@ -244,7 +246,7 @@ export function resolveModelWithTier(requestedModel: string, options: ModelResol
   if (isEffectiveGemini3) {
     return {
       actualModel: resolvedModel,
-      thinkingLevel: tier,
+      thinkingLevel: tier === "extra-low" ? "minimal" : tier,
       tier,
       isThinkingModel: true,
       quotaPreference,
@@ -254,7 +256,8 @@ export function resolveModelWithTier(requestedModel: string, options: ModelResol
 
   const budgetFamily = getBudgetFamily(resolvedModel);
   const budgets = THINKING_TIER_BUDGETS[budgetFamily];
-  const thinkingBudget = budgets[tier];
+  const budgetTier = tier === "extra-low" ? "low" : tier;
+  const thinkingBudget = budgets[budgetTier];
 
   return {
     actualModel: resolvedModel,
@@ -340,13 +343,13 @@ export function resolveModelForHeaderStyle(
   if (headerStyle === "gemini-cli") {
     let transformedModel = requestedModel
       .replace(/^antigravity-/i, "")
-      .replace(/-(low|medium|high)$/i, "");
+      .replace(/-(extra-low|low|medium|high)$/i, "");
 
-    // Only append -preview for preview-named families (gemini-3-flash,
-    // gemini-3-pro, gemini-3.1-pro). GA models like gemini-3.5-flash and
+    // Only append -preview for legacy preview-named families (gemini-3-flash,
+    // gemini-3-pro). GA families like gemini-3.1-pro, gemini-3.5-flash and
     // gemini-3.6-flash must NOT get a -preview suffix.
     const hasPreviewSuffix = /-preview($|-)/i.test(transformedModel);
-    const isPreviewFamily = /^gemini-3(?:\.1)?-(?:pro|flash)(?:-customtools)?$/i.test(transformedModel);
+    const isPreviewFamily = /^gemini-3-(?:pro|flash)(?:-customtools)?$/i.test(transformedModel);
     if (!hasPreviewSuffix && isPreviewFamily) {
       transformedModel = `${transformedModel}-preview`;
     }
@@ -394,7 +397,7 @@ export function resolveModelWithVariant(
 
     let actualModel = base.actualModel;
     if (isAntigravityGemini3Pro) {
-      const baseModel = base.actualModel.replace(/-(low|medium|high)$/, "");
+      const baseModel = base.actualModel.replace(/-(extra-low|low|medium|high)$/, "");
       actualModel = `${baseModel}-${level}`;
     }
 
