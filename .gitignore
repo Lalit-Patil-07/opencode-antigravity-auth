@@ -45,3 +45,6 @@ CLIProxyAPI/
 LLM-API-Key-Proxy/
 opencode/
 opencode-better-antigravity-auth/
+
+# Agent session artifacts
+.omo/

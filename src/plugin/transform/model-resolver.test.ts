@@ -105,9 +105,9 @@ describe("resolveModelWithTier", () => {
       expect(result.quotaPreference).toBe("antigravity");
     });
 
-    it("antigravity-gemini-3-flash-medium gets thinkingLevel from tier", () => {
+    it("antigravity-gemini-3-flash-medium keeps tier suffix on model name", () => {
       const result = resolveModelWithTier("antigravity-gemini-3-flash-medium");
-      expect(result.actualModel).toBe("gemini-3-flash");
+      expect(result.actualModel).toBe("gemini-3-flash-medium");
       expect(result.thinkingLevel).toBe("medium");
     });
 
@@ -150,6 +150,76 @@ describe("resolveModelWithTier", () => {
       const result = resolveModelWithTier("gemini-claude-sonnet-4-6");
       expect(result.actualModel).toBe("claude-sonnet-4-6");
       expect(result.isThinkingModel).toBe(false);
+      expect(result.quotaPreference).toBe("antigravity");
+    });
+  });
+
+  describe("Gemini 3.5/3.6 Flash (GA models)", () => {
+    it("antigravity-gemini-3.5-flash gets default thinkingLevel 'low'", () => {
+      const result = resolveModelWithTier("antigravity-gemini-3.5-flash");
+      expect(result.actualModel).toBe("gemini-3.5-flash");
+      expect(result.thinkingLevel).toBe("low");
+      expect(result.quotaPreference).toBe("antigravity");
+      expect(result.explicitQuota).toBe(true);
+    });
+
+    it("antigravity-gemini-3.6-flash-high keeps tier suffix on model name", () => {
+      const result = resolveModelWithTier("antigravity-gemini-3.6-flash-high");
+      expect(result.actualModel).toBe("gemini-3.6-flash-high");
+      expect(result.thinkingLevel).toBe("high");
+      expect(result.quotaPreference).toBe("antigravity");
+    });
+
+    it("antigravity-gemini-3.5-flash-medium keeps tier suffix on model name", () => {
+      const result = resolveModelWithTier("antigravity-gemini-3.5-flash-medium");
+      expect(result.actualModel).toBe("gemini-3.5-flash-medium");
+      expect(result.thinkingLevel).toBe("medium");
+    });
+
+    it("bare gemini-3.6-flash defaults to antigravity quota", () => {
+      const result = resolveModelWithTier("gemini-3.6-flash");
+      expect(result.actualModel).toBe("gemini-3.6-flash");
+      expect(result.thinkingLevel).toBe("low");
+      expect(result.quotaPreference).toBe("antigravity");
+    });
+  });
+
+  describe("GPT-OSS", () => {
+    it("antigravity-gpt-oss-120b-medium resolves as non-thinking model", () => {
+      const result = resolveModelWithTier("antigravity-gpt-oss-120b-medium");
+      expect(result.actualModel).toBe("gpt-oss-120b-medium");
+      expect(result.isThinkingModel).toBe(false);
+      expect(result.thinkingBudget).toBeUndefined();
+      expect(result.thinkingLevel).toBeUndefined();
+      expect(result.quotaPreference).toBe("antigravity");
+      expect(result.explicitQuota).toBe(true);
+    });
+  });
+
+  describe("Claude Sonnet 4.6 thinking", () => {
+    it("antigravity-claude-sonnet-4-6-thinking gets default max budget (32768)", () => {
+      const result = resolveModelWithTier("antigravity-claude-sonnet-4-6-thinking");
+      expect(result.actualModel).toBe("claude-sonnet-4-6-thinking");
+      expect(result.thinkingBudget).toBe(32768);
+      expect(result.isThinkingModel).toBe(true);
+      expect(result.quotaPreference).toBe("antigravity");
+    });
+
+    it("antigravity-claude-sonnet-4-6-thinking-low gets budget from tier", () => {
+      const result = resolveModelWithTier("antigravity-claude-sonnet-4-6-thinking-low");
+      expect(result.actualModel).toBe("claude-sonnet-4-6-thinking");
+      expect(result.thinkingBudget).toBe(8192);
+      expect(result.isThinkingModel).toBe(true);
+    });
+  });
+
+  describe("Gemini 3.1 Flash Image (Nano Banana 2)", () => {
+    it("marks antigravity-gemini-3.1-flash-image as image model without thinking", () => {
+      const result = resolveModelWithTier("antigravity-gemini-3.1-flash-image");
+      expect(result.actualModel).toBe("gemini-3.1-flash-image");
+      expect(result.isImageModel).toBe(true);
+      expect(result.isThinkingModel).toBe(false);
+      expect(result.explicitQuota).toBe(true);
       expect(result.quotaPreference).toBe("antigravity");
     });
   });
@@ -210,11 +280,11 @@ describe("resolveModelWithVariant", () => {
       expect(result.configSource).toBe("variant");
     });
 
-    it("maps budget to thinkingLevel for Gemini 3 Flash - medium (no tier suffix)", () => {
+    it("maps budget to thinkingLevel for Gemini 3 Flash - medium (tier suffix on model)", () => {
       const result = resolveModelWithVariant("antigravity-gemini-3-flash", {
         thinkingBudget: 12000,
       });
-      expect(result.actualModel).toBe("gemini-3-flash");
+      expect(result.actualModel).toBe("gemini-3-flash-medium");
       expect(result.thinkingLevel).toBe("medium");
       expect(result.configSource).toBe("variant");
     });
@@ -309,6 +379,29 @@ describe("Issue #103: resolveModelForHeaderStyle", () => {
       const result = resolveModelForHeaderStyle("gemini-3.1-pro-preview-customtools", "gemini-cli");
       expect(result.actualModel).toBe("gemini-3.1-pro-preview-customtools");
       expect(result.quotaPreference).toBe("gemini-cli");
+    });
+
+    it("does NOT append -preview to GA gemini-3.5-flash for gemini-cli", () => {
+      const result = resolveModelForHeaderStyle("gemini-3.5-flash", "gemini-cli");
+      expect(result.actualModel).toBe("gemini-3.5-flash");
+      expect(result.quotaPreference).toBe("gemini-cli");
+    });
+
+    it("does NOT append -preview to GA gemini-3.6-flash for gemini-cli", () => {
+      const result = resolveModelForHeaderStyle("gemini-3.6-flash", "gemini-cli");
+      expect(result.actualModel).toBe("gemini-3.6-flash");
+      expect(result.quotaPreference).toBe("gemini-cli");
+    });
+
+    it("strips tier suffix but no -preview for antigravity-gemini-3.5-flash-high to gemini-cli", () => {
+      const result = resolveModelForHeaderStyle("antigravity-gemini-3.5-flash-high", "gemini-cli");
+      expect(result.actualModel).toBe("gemini-3.5-flash");
+      expect(result.quotaPreference).toBe("gemini-cli");
+    });
+
+    it("still appends -preview to gemini-3-flash for gemini-cli", () => {
+      const result = resolveModelForHeaderStyle("gemini-3-flash", "gemini-cli");
+      expect(result.actualModel).toBe("gemini-3-flash-preview");
     });
   });
 

@@ -1,5 +1,21 @@
 # Changelog
 
+## [Unreleased]
+
+### Added
+
+- **Gemini 3.5 Flash / 3.6 Flash** — new Antigravity and Gemini CLI definitions with low/medium/high thinking variants.
+- **Claude Sonnet 4.6 Thinking** — `antigravity-claude-sonnet-4-6-thinking` with low/max thinking budgets.
+- **GPT-OSS 120B Medium** — `antigravity-gpt-oss-120b-medium` definition.
+- **Gemini 3.1 Flash Image** — `antigravity-gemini-3.1-flash-image` image-generation definition.
+- **Dynamic model discovery** — the plugin queries `/v1internal:fetchAvailableModels` at session start, merges account-specific models over the static list, and caches them for offline fallback. New Antigravity models work without a plugin update.
+
+### Changed
+
+- **Removed `gemini-3-pro-preview`** (model shut down) from the CLI definitions and test matrix.
+- **`-preview` suffix append** now only applies to preview-named families (`gemini-3-flash-preview`, `gemini-3.1-pro-preview`), so GA models like `gemini-3.5-flash` are no longer rewritten to `gemini-3.5-flash-preview`.
+- **Legacy aliases** (`antigravity-gemini-3-flash` and friends) resolve through the tier resolver without touching the actual API model name.
+
 ## [1.6.0] - 2026-02-20
 
 ### Fixed

@@ -342,8 +342,12 @@ export function resolveModelForHeaderStyle(
       .replace(/^antigravity-/i, "")
       .replace(/-(low|medium|high)$/i, "");
 
+    // Only append -preview for preview-named families (gemini-3-flash,
+    // gemini-3-pro, gemini-3.1-pro). GA models like gemini-3.5-flash and
+    // gemini-3.6-flash must NOT get a -preview suffix.
     const hasPreviewSuffix = /-preview($|-)/i.test(transformedModel);
-    if (!hasPreviewSuffix) {
+    const isPreviewFamily = /^gemini-3(?:\.1)?-(?:pro|flash)(?:-customtools)?$/i.test(transformedModel);
+    if (!hasPreviewSuffix && isPreviewFamily) {
       transformedModel = `${transformedModel}-preview`;
     }
     

@@ -5,8 +5,8 @@
 # Models tested:
 # 1. google/gemini-2.5-pro
 # 2. google/gemini-2.5-flash
-# 3. google/gemini-3-pro-preview
-# 4. google/gemini-3-flash-preview
+# 3. google/gemini-3-flash-preview
+# 4. google/gemini-3.5-flash
 
 set -euo pipefail
 
@@ -94,8 +94,8 @@ echo "Test 3: google/gemini-3-flash-preview"
 test_model "google/gemini-3-flash-preview" "gemini-3-flash-preview" || true
 echo ""
 
-echo "Test 4: google/gemini-3-pro-preview"
-test_model "google/gemini-3-pro-preview" "gemini-3-pro-preview" || true
+echo "Test 4: google/gemini-3.5-flash"
+test_model "google/gemini-3.5-flash" "gemini-3.5-flash" || true
 echo ""
 
 # Test 5: Cross-model session (gemini-cli → antigravity)

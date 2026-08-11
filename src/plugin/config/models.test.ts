@@ -17,15 +17,21 @@ describe("OPENCODE_MODEL_DEFINITIONS", () => {
     expect(modelNames).toEqual([
       "antigravity-claude-opus-4-6-thinking",
       "antigravity-claude-sonnet-4-6",
+      "antigravity-claude-sonnet-4-6-thinking",
       "antigravity-gemini-3-flash",
       "antigravity-gemini-3-pro",
+      "antigravity-gemini-3.1-flash-image",
       "antigravity-gemini-3.1-pro",
+      "antigravity-gemini-3.5-flash",
+      "antigravity-gemini-3.6-flash",
+      "antigravity-gpt-oss-120b-medium",
       "gemini-2.5-flash",
       "gemini-2.5-pro",
       "gemini-3-flash-preview",
-      "gemini-3-pro-preview",
       "gemini-3.1-pro-preview",
       "gemini-3.1-pro-preview-customtools",
+      "gemini-3.5-flash",
+      "gemini-3.6-flash",
     ]);
   });
 
@@ -46,6 +52,36 @@ describe("OPENCODE_MODEL_DEFINITIONS", () => {
       medium: { thinkingLevel: "medium" },
       high: { thinkingLevel: "high" },
     });
+  });
+
+  it("defines low/medium/high variants for Gemini 3.5/3.6 Flash", () => {
+    expect(getModel("antigravity-gemini-3.5-flash").variants).toEqual({
+      low: { thinkingLevel: "low" },
+      medium: { thinkingLevel: "medium" },
+      high: { thinkingLevel: "high" },
+    });
+
+    expect(getModel("antigravity-gemini-3.6-flash").variants).toEqual({
+      low: { thinkingLevel: "low" },
+      medium: { thinkingLevel: "medium" },
+      high: { thinkingLevel: "high" },
+    });
+  });
+
+  it("defines thinking budget variants for Claude Sonnet 4.6 thinking", () => {
+    expect(getModel("antigravity-claude-sonnet-4-6-thinking").variants).toEqual({
+      low: { thinkingConfig: { thinkingBudget: 8192 } },
+      max: { thinkingConfig: { thinkingBudget: 32768 } },
+    });
+  });
+
+  it("defines non-thinking models without variants", () => {
+    expect(getModel("antigravity-gpt-oss-120b-medium").variants).toBeUndefined();
+    expect(getModel("antigravity-gemini-3.1-flash-image").variants).toBeUndefined();
+  });
+
+  it("no longer ships the shut-down gemini-3-pro-preview definition", () => {
+    expect(OPENCODE_MODEL_DEFINITIONS["gemini-3-pro-preview"]).toBeUndefined();
   });
 
   it("defines thinking budget variants for Claude thinking models", () => {

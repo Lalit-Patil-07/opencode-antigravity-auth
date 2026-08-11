@@ -33,6 +33,7 @@ Antigravity is Google's **Unified Gateway API** for accessing multiple AI models
 |--------|------|-------------|
 | Generate Content | `/v1internal:generateContent` | Non-streaming request |
 | Stream Generate | `/v1internal:streamGenerateContent?alt=sse` | Streaming (SSE) request |
+| Fetch Available Models | `/v1internal:fetchAvailableModels` | List models available to the account (used by the plugin for dynamic model discovery) |
 | Load Code Assist | `/v1internal:loadCodeAssist` | Project discovery |
 | Onboard User | `/v1internal:onboardUser` | User onboarding |
 
@@ -79,10 +80,20 @@ Accept: text/event-stream
 | Model Name | Model ID | Type | Status |
 |------------|----------|------|--------|
 | Claude Sonnet 4.6 | `claude-sonnet-4-6` | Anthropic | ✅ Verified |
+| Claude Sonnet 4.6 Thinking | `claude-sonnet-4-6-thinking` | Anthropic | ✅ Verified |
 | Claude Opus 4.6 Thinking | `claude-opus-4-6-thinking` | Anthropic | ✅ Verified |
 | Gemini 3 Pro High | `gemini-3-pro-high` | Google | ✅ Verified |
 | Gemini 3 Pro Low | `gemini-3-pro-low` | Google | ✅ Verified |
+| Gemini 3.1 Pro High | `gemini-3.1-pro-high` | Google | ✅ Verified |
+| Gemini 3.1 Pro Low | `gemini-3.1-pro-low` | Google | ✅ Verified |
+| Gemini 3.1 Flash Image | `gemini-3.1-flash-image` | Google | ✅ Verified |
+| Gemini 3.5 Flash | `gemini-3.5-flash` | Google | ✅ Verified |
+| Gemini 3.6 Flash | `gemini-3.6-flash` | Google | ✅ Verified |
 | GPT-OSS 120B Medium | `gpt-oss-120b-medium` | Other | ✅ Verified |
+
+> The plugin queries `fetchAvailableModels` at session start and merges the
+> account-specific model list over its static definitions, so newly released
+> models become available without a plugin update.
 
 ---
 

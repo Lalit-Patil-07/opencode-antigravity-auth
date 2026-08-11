@@ -32,6 +32,7 @@ import {
   transformAntigravityResponse,
 } from "./plugin/request";
 import { resolveModelWithTier } from "./plugin/transform/model-resolver";
+import { refreshModelDefinitionsFromApi } from "./plugin/config/dynamic-models";
 import {
   isEmptyResponseBody,
   createSyntheticErrorResponse,
@@ -1401,6 +1402,14 @@ export const createAntigravityPlugin = (providerId: string) => async (
           // ignore
         }
         return {};
+      }
+
+      if (auth.access) {
+        void refreshModelDefinitionsFromApi(auth.access).catch((error) => {
+          if (isDebugEnabled()) {
+            console.debug("Antigravity dynamic model refresh failed:", error);
+          }
+        });
       }
 
       // Validate that stored accounts are in sync with OpenCode's auth
