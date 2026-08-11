@@ -1096,7 +1096,7 @@ it("removes x-api-key header", () => {
         expect(result.effectiveModel).toBe("gemini-3-pro-preview");
       });
 
-      it("transforms gemini-3.1-pro-low to gemini-3.1-pro-preview for gemini-cli headerStyle", () => {
+      it("transforms gemini-3.1-pro-low to bare gemini-3.1-pro for gemini-cli headerStyle", () => {
         const result = prepareAntigravityRequest(
           "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.1-pro-low:generateContent",
           { method: "POST", body: JSON.stringify({ contents: [] }) },
@@ -1105,7 +1105,7 @@ it("removes x-api-key header", () => {
           undefined,
           "gemini-cli"
         );
-        expect(result.effectiveModel).toBe("gemini-3.1-pro-preview");
+        expect(result.effectiveModel).toBe("gemini-3.1-pro");
       });
 
       it("keeps gemini-3.1-pro-preview-customtools unchanged for gemini-cli headerStyle", () => {
