@@ -1,10 +1,11 @@
 import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 
-import { getAntigravityHeaders } from "../../constants";
+import { getAntigravityHeaders, ANTIGRAVITY_ENDPOINT_PROD } from "../../constants";
 import { getConfigDir } from "../storage";
 import {
   OPENCODE_MODEL_DEFINITIONS,
+  type ModelThinkingLevel,
   type OpencodeModelDefinition,
   type OpencodeModelDefinitions,
 } from "./models";
@@ -64,6 +65,10 @@ const PRO_VARIANTS: OpencodeModelDefinition["variants"] = {
   high: { thinkingLevel: "high" },
 };
 
+const EXTRA_LOW_VARIANTS: OpencodeModelDefinition["variants"] = {
+  "extra-low": { thinkingLevel: "minimal" },
+};
+
 const CLAUDE_THINKING_VARIANTS: OpencodeModelDefinition["variants"] = {
   low: { thinkingConfig: { thinkingBudget: 8192 } },
   max: { thinkingConfig: { thinkingBudget: 32768 } },
@@ -91,11 +96,36 @@ function extractModelId(entry: Record<string, unknown>): string | undefined {
   return stripped.trim() || undefined;
 }
 
+function shouldSkipDynamicModel(id: string): boolean {
+  // chat_/tab_ prefixed ids are internal placeholder models (no displayName).
+  // gemini-2.5-* entries returned by the API are displayName aliases of newer
+  // families ("Gemini 3.1 Flash Lite") and would pollute the model list.
+  // gemini-pro-agent / gemini-3-flash-agent are CLI agent aliases.
+  return (
+    /^(chat_|tab_)/.test(id) ||
+    /^gemini-2\.5-/.test(id) ||
+    /^gemini-pro-latest$/.test(id) ||
+    /^gemini-(pro|3-flash)-agent$/.test(id)
+  );
+}
+
+/**
+ * Normalizes an API model id to its config family id.
+ * Antigravity exposes tiered names (gemini-3.6-flash-low) that map to a single
+ * config family (antigravity-gemini-3.6-flash) with tier variants.
+ * gpt-oss-120b-medium and claude-opus-4-6-thinking keep their full names.
+ */
+function normalizeModelId(id: string): { family: string; tier?: string } {
+  const tierMatch = id.match(/^(gemini-3\.(?:5|6)-flash|gemini-3\.1-pro)-(extra-low|low|medium|high)$/);
+  if (tierMatch?.[1] && tierMatch[2]) return { family: tierMatch[1], tier: tierMatch[2] };
+  return { family: id };
+}
+
 export async function fetchAvailableModels(
   accessToken: string,
   options: FetchAvailableModelsOptions = {},
 ): Promise<DynamicModelInfo[]> {
-  const endpoint = options.endpoint ?? "https://clients5.google.com/ai";
+  const endpoint = options.endpoint ?? ANTIGRAVITY_ENDPOINT_PROD;
   const doFetch = options.fetchImpl ?? fetch;
   const response = await doFetch(`${endpoint}/v1internal:fetchAvailableModels`, {
     method: "POST",
@@ -104,22 +134,31 @@ export async function fetchAvailableModels(
       Authorization: `Bearer ${accessToken}`,
       "Content-Type": "application/json",
     },
-    body: JSON.stringify({
-      metadata: { ideType: "ANTIGRAVITY", platform: "GEMINI_CLI", pluginType: "GEMINI" },
-    }),
+    body: "{}",
   });
   if (!response.ok) {
     throw new Error(`Failed to fetch Antigravity models (${response.status})`);
   }
   const payload = (await response.json()) as {
-    models?: Record<string, unknown>[];
+    models?: Record<string, unknown> | Record<string, unknown>[];
   };
-  const entries = Array.isArray(payload?.models) ? payload.models : [];
+  const rawModels = payload?.models;
+  let entries: Array<{ id?: string; entry: Record<string, unknown> }>;
+  if (Array.isArray(rawModels)) {
+    entries = rawModels.map((entry) => ({ entry }));
+  } else if (rawModels && typeof rawModels === "object") {
+    // Real API shape: models is a map keyed by model id, entries carry no id.
+    entries = Object.entries(rawModels).map(([id, entry]) => ({ id, entry: entry as Record<string, unknown> }));
+  } else {
+    entries = [];
+  }
   // Dedupe by id, last occurrence wins (mirrors pi's getAvailableModels behavior).
   const byId = new Map<string, DynamicModelInfo>();
-  for (const entry of entries) {
-    const id = extractModelId(entry);
-    if (!id) continue;
+  for (const { id: keyId, entry } of entries) {
+    // Object-map entries carry the real id as the map key; their entry.model
+    // is an obfuscated placeholder (MODEL_PLACEHOLDER_M*) and must NOT win.
+    const id = keyId ?? extractModelId(entry);
+    if (!id || shouldSkipDynamicModel(id)) continue;
     byId.set(id, {
       id,
       displayName: typeof entry.displayName === "string" ? entry.displayName : typeof entry.name === "string" ? entry.name : undefined,
@@ -141,13 +180,16 @@ function inferVariants(id: string): OpencodeModelDefinition["variants"] | undefi
   if (/^claude-/.test(id)) {
     return undefined;
   }
-  if (/gemini-3.*-(pro|flash)/.test(id)) {
-    return /-flash/.test(id) ? FLASH_VARIANTS : PRO_VARIANTS;
+  if (/^gemini-3\.(?:5|6)-flash/.test(id)) {
+    return { ...FLASH_VARIANTS, ...EXTRA_LOW_VARIANTS };
+  }
+  if (/^gemini-3\.1-pro/.test(id)) {
+    return PRO_VARIANTS;
   }
   if (/gemini-2\.5-(pro|flash)/.test(id)) {
     return /-flash/.test(id) ? FLASH_VARIANTS : PRO_VARIANTS;
   }
-  return FLASH_VARIANTS;
+  return undefined;
 }
 
 export function mergeDynamicModels(
@@ -156,17 +198,26 @@ export function mergeDynamicModels(
 ): OpencodeModelDefinitions {
   const merged: OpencodeModelDefinitions = { ...staticDefinitions };
   for (const model of dynamicModels) {
-    const key = `antigravity-${model.id}`;
+    const { family, tier } = normalizeModelId(model.id);
+    const key = `antigravity-${family}`;
     const existing = merged[key];
     const limit = {
       context: model.maxTokens ?? existing?.limit?.context ?? DEFAULT_MODEL_LIMIT.context,
       output: model.maxOutputTokens ?? existing?.limit?.output ?? DEFAULT_MODEL_LIMIT.output,
     };
+    let variants = existing?.variants ?? inferVariants(family);
+    if (tier && variants) {
+      // API exposes more tiers than the static config (e.g. extra-low) —
+      // merge them in while preserving static variants.
+      const level: ModelThinkingLevel = tier === "extra-low" ? "minimal" : (tier as ModelThinkingLevel);
+      const tierVariant = { [tier]: { thinkingLevel: level } };
+      variants = { ...variants, ...tierVariant };
+    }
     merged[key] = {
-      name: existing?.name ?? model.displayName ?? model.id,
+      name: existing?.name ?? model.displayName ?? family,
       limit,
       modalities: existing?.modalities ?? DEFAULT_MODALITIES,
-      variants: existing?.variants ?? inferVariants(model.id),
+      variants,
     } satisfies OpencodeModelDefinition;
   }
   return merged;
